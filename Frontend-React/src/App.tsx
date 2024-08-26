@@ -83,7 +83,7 @@ const App = () => {
         <Row>
           <Col>
             {error.visible && (
-              <Alert variant="danger" onClick={handleCloseAlert} dismissible>
+              <Alert variant="danger" onClose={handleCloseAlert} dismissible>
                 {error.message}
               </Alert>
             )}
