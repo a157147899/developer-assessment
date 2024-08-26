@@ -31,13 +31,27 @@ namespace TodoList.Api
                       });
             });
 
+            // Register Mapster mappings
+            MappingConfig.RegisterMappings();
+
             services.AddControllers();
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "TodoList.Api", Version = "v1" });
             });
 
+            //dbcontexts
             services.AddDbContext<TodoContext>(opt => opt.UseInMemoryDatabase("TodoItemsDB"));
+
+            //repositories
+            services.AddScoped<ITodoItemRepository, TodoItemRepository>();
+
+            //validators
+            services.AddScoped<ICreateTodoItemValidator, CreateTodoItemRequestValidator>();
+            services.AddScoped<IUpdateTodoItemValidator, UpdateTodoItemRequestValidator>();
+
+            //serivces
+            services.AddScoped<ITodoItemService, TodoItemService>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
