@@ -1,9 +1,14 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+﻿using FluentValidation;
+using Mapster;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using TodoList.Api.Models;
+using TodoList.Application.Services;
+using TodoList.Domain.Entities;
 
 namespace TodoList.Api.Controllers
 {
@@ -11,12 +16,12 @@ namespace TodoList.Api.Controllers
     [ApiController]
     public class TodoItemsController : ControllerBase
     {
-        private readonly TodoContext _context;
+        private readonly ITodoItemService _todoItemService;
         private readonly ILogger<TodoItemsController> _logger;
 
-        public TodoItemsController(TodoContext context, ILogger<TodoItemsController> logger)
+        public TodoItemsController(ITodoItemService todoItemService, ILogger<TodoItemsController> logger)
         {
-            _context = context;
+            _todoItemService = todoItemService;
             _logger = logger;
         }
 
@@ -24,82 +29,86 @@ namespace TodoList.Api.Controllers
         [HttpGet]
         public async Task<IActionResult> GetTodoItems()
         {
-            var results = await _context.TodoItems.Where(x => !x.IsCompleted).ToListAsync();
-            return Ok(results);
+            try
+            {
+                var todoItems = await _todoItemService.GetAllTodoItemsAsync();
+
+                return Ok(todoItems.Adapt<List<TodoItemResponse>>());
+            }
+            catch (Exception)
+            {
+                return Problem();
+            }
         }
 
         // GET: api/TodoItems/...
         [HttpGet("{id}")]
         public async Task<IActionResult> GetTodoItem(Guid id)
         {
-            var result = await _context.TodoItems.FindAsync(id);
-
-            if (result == null)
+            try
             {
-                return NotFound();
-            }
+                var todoItem = await _todoItemService.GetTodoItemAsync(id);
 
-            return Ok(result);
+                if (todoItem == null)
+                {
+                    return NotFound();
+                }
+
+                return Ok(todoItem.Adapt<TodoItemResponse>());
+            }
+            catch (Exception)
+            {
+                return Problem();
+            }
         }
 
         // PUT: api/TodoItems/... 
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutTodoItem(Guid id, TodoItem todoItem)
+        public async Task<IActionResult> PutTodoItem([FromRoute] Guid id, [FromBody] TodoItemRequest todoItemRequest)
         {
-            if (id != todoItem.Id)
+            if (id != todoItemRequest.Id)
             {
                 return BadRequest();
             }
 
-            _context.Entry(todoItem).State = EntityState.Modified;
-
             try
             {
-                await _context.SaveChangesAsync();
+                await _todoItemService.UpdateTodoItemAsync(todoItemRequest.Adapt<TodoItem>());
             }
-            catch (DbUpdateConcurrencyException)
+            catch (ValidationException ex)
             {
-                if (!TodoItemIdExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
+                return BadRequest(ex.Errors.Any() ? string.Join(";", ex.Errors) : ex.Message);
+            }
+            catch (Exception)
+            {
+                return Problem();
             }
 
             return NoContent();
-        } 
+        }
 
         // POST: api/TodoItems 
         [HttpPost]
-        public async Task<IActionResult> PostTodoItem(TodoItem todoItem)
+        public async Task<IActionResult> PostTodoItem([FromBody] TodoItemRequest todoItemRequest)
         {
-            if (string.IsNullOrEmpty(todoItem?.Description))
+            TodoItemResponse todoItemResponse;
+
+            try
             {
-                return BadRequest("Description is required");
+                var updatedTodoItem = await _todoItemService.CreateTodoItemAsync(todoItemRequest.Adapt<TodoItem>());
+                todoItemResponse = updatedTodoItem.Adapt<TodoItemResponse>();
             }
-            else if (TodoItemDescriptionExists(todoItem.Description))
+            catch (ValidationException ex)
             {
-                return BadRequest("Description already exists");
-            } 
+                return BadRequest(ex.Errors.Any() ? string.Join(";", ex.Errors) : ex.Message);
+            }
+            catch (Exception)
+            {
+                return Problem();
+            }
 
-            _context.TodoItems.Add(todoItem);
-            await _context.SaveChangesAsync();
-             
-            return CreatedAtAction(nameof(GetTodoItem), new { id = todoItem.Id }, todoItem);
-        } 
-
-        private bool TodoItemIdExists(Guid id)
-        {
-            return _context.TodoItems.Any(x => x.Id == id);
+            return CreatedAtAction(nameof(PostTodoItem), todoItemResponse);
         }
 
-        private bool TodoItemDescriptionExists(string description)
-        {
-            return _context.TodoItems
-                   .Any(x => x.Description.ToLowerInvariant() == description.ToLowerInvariant() && !x.IsCompleted);
-        }
     }
 }
