@@ -52,6 +52,8 @@ namespace TodoList.Api
 
             app.UseHttpsRedirection();
 
+            app.UseMiddleware<AuditLoggingMiddleware>();
+
             app.UseRouting();
 
             app.UseCors("AllowAllHeaders");
