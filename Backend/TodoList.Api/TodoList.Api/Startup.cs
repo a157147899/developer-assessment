@@ -5,6 +5,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.OpenApi.Models;
+using TodoList.Api.Mapping;
+using TodoList.Api.Middlewares;
+using TodoList.Application.Services;
+using TodoList.Application.Validators;
+using TodoList.Domain;
+using TodoList.Infrastructure;
 
 namespace TodoList.Api
 {
